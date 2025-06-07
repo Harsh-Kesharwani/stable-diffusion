@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from ddpm import DDPMSampler
 from PIL import Image
+import model
 
 WIDTH = 512
 HEIGHT = 512
@@ -225,14 +226,20 @@ def generate(
         else:
             generator.manual_seed(seed)
 
-        concat_dim = -2  # FIXME: y axis concat
+        concat_dim = -1  # FIXME: y axis concat
+
         # Prepare inputs to Tensor
         image, condition_image, mask = check_inputs(image, condition_image, mask, width, height)
+        # print(f"Input image shape: {image.shape}, condition image shape: {condition_image.shape}, mask shape: {mask.shape}")
         image = prepare_image(image).to(device)
         condition_image = prepare_image(condition_image).to(device)
         mask = prepare_mask_image(mask).to(device)
+
+        print(f"Prepared image shape: {image.shape}, condition image shape: {condition_image.shape}, mask shape: {mask.shape}")
         # Mask image
         masked_image = image * (mask < 0.5)
+
+        print(f"Masked image shape: {masked_image.shape}")
 
         # VAE encoding
         encoder = models.get('encoder', None)
@@ -244,12 +251,18 @@ def generate(
         condition_latent = compute_vae_encodings(condition_image, encoder, device)
         to_idle(encoder)
 
+        print(f"Masked latent shape: {masked_latent.shape}, condition latent shape: {condition_latent.shape}")
+
         # Concatenate latents
         masked_latent_concat = torch.cat([masked_latent, condition_latent], dim=concat_dim)
+
+        print(f"Masked Person latent + garment latent: {masked_latent_concat.shape}")
 
         mask_latent = torch.nn.functional.interpolate(mask, size=masked_latent.shape[-2:], mode="nearest")
         del image, mask, condition_image
         mask_latent_concat = torch.cat([mask_latent, torch.zeros_like(mask_latent)], dim=concat_dim)
+
+        print(f"Mask latent concat shape: {mask_latent_concat.shape}")
         
         # Initialize latents
         latents = torch.randn(
@@ -258,6 +271,8 @@ def generate(
             device=masked_latent_concat.device,
             dtype=masked_latent_concat.dtype
         )
+
+        print(f"Latents shape: {latents.shape}")
         
         # Prepare timesteps
         if sampler_name == "ddpm":
@@ -267,7 +282,7 @@ def generate(
             raise ValueError("Unknown sampler value %s. " % sampler_name)
 
         timesteps = sampler.timesteps
-        latents = sampler.add_noise(latents, timesteps[0])
+        # latents = sampler.add_noise(latents, timesteps[0])
         
         # Classifier-Free Guidance
         do_classifier_free_guidance = guidance_scale > 1.0
@@ -280,6 +295,9 @@ def generate(
             )
             mask_latent_concat = torch.cat([mask_latent_concat] * 2)
 
+            print(f"Masked latent concat for classifier-free guidance: {masked_latent_concat.shape}, mask latent concat: {mask_latent_concat.shape}")
+        
+
         # Denoising loop - Fixed: removed self references and incorrect scheduler calls
         num_warmup_steps = 0  # For simple DDPM, no warmup needed
         
@@ -287,9 +305,13 @@ def generate(
             for i, t in enumerate(timesteps):
                 # expand the latents if we are doing classifier free guidance
                 non_inpainting_latent_model_input = (torch.cat([latents] * 2) if do_classifier_free_guidance else latents)
+
+                # print(f"Non-inpainting latent model input shape: {non_inpainting_latent_model_input.shape}")
                 
                 # prepare the input for the inpainting model
                 inpainting_latent_model_input = torch.cat([non_inpainting_latent_model_input, mask_latent_concat, masked_latent_concat], dim=1)
+
+                # print(f"Inpainting latent model input shape: {inpainting_latent_model_input.shape}")
                 
                 # predict the noise residual
                 diffusion = models.get('diffusion', None)
@@ -299,7 +321,9 @@ def generate(
                 diffusion.to(device)
                 
                 # Create time embedding for the current timestep
-                time_embedding = get_time_embedding(t.item()).unsqueeze(0).to(device)
+                time_embedding = get_time_embedding(t.item()).to(device)
+                # print(f"Time embedding shape: {time_embedding.shape}")
+
                 if do_classifier_free_guidance:
                     time_embedding = torch.cat([time_embedding] * 2)
                 
@@ -334,6 +358,7 @@ def generate(
         decoder.to(device)
 
         image = decoder(latents.to(device))
+        # image = rescale(image, (-1, 1), (0, 255), clamp=True)
         image = (image / 2 + 0.5).clamp(0, 1)
         # we always cast to float32 as this does not cause significant overhead and is compatible with bfloat16
         image = image.cpu().permute(0, 2, 3, 1).float().numpy()
@@ -364,12 +389,12 @@ def get_time_embedding(timestep):
 
 if __name__ == "__main__":
     # Example usage
-    image = Image.open("example_image.jpg").convert("RGB")
-    condition_image = Image.open("example_condition_image.jpg").convert("RGB")
-    mask = Image.open("example_mask.png").convert("L")
+    image = Image.open("person.jpg").convert("RGB")
+    condition_image = Image.open("image.png").convert("RGB")
+    mask = Image.open("agnostic_mask.png").convert("L")
 
-    # Resize images to the desired dimensions
-    image, condition_image, mask = check_inputs(image, condition_image, mask, WIDTH, HEIGHT)
+    # Load models
+    models=model.preload_models_from_standard_weights("sd-v1-5-inpainting.ckpt", device="cuda")
 
     # Generate image
     generated_image = generate(
@@ -380,6 +405,9 @@ if __name__ == "__main__":
         guidance_scale=2.5,
         width=WIDTH,
         height=HEIGHT,
+        models=models,
+        sampler_name="ddpm",
+        seed=42,    
         device="cuda"  # or "cpu"
     )
 

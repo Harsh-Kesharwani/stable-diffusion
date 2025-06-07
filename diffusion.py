@@ -134,11 +134,11 @@ class SwitchSequential(nn.Sequential):
         return x
     
 class UNET(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels=4):
         super().__init__()
         self.encoders=nn.ModuleList([
             # (Batch_Size, 4, Height / 8, Width / 8) -> (Batch_Size, 320, Height / 8, Width / 8)
-            SwitchSequential(nn.Conv2d(4, 320, kernel_size=3, padding=1)),
+            SwitchSequential(nn.Conv2d(in_channels, 320, kernel_size=3, padding=1)),
             
             # (Batch_Size, 320, Height / 8, Width / 8) -> # (Batch_Size, 320, Height / 8, Width / 8) -> (Batch_Size, 320, Height / 8, Width / 8)
             SwitchSequential(UNET_ResidualBlock(320, 320), UNET_AttentionBlock(8, 40)),
@@ -245,11 +245,11 @@ class UNET_OutputLayer(nn.Module):
         return x
 
 class Diffusion(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels=4, out_channels=4):
         super().__init__()
         self.time_embedding=TimeEmbedding(320)
-        self.unet=UNET()
-        self.final=UNET_OutputLayer(320, 4)
+        self.unet=UNET(in_channels)
+        self.final=UNET_OutputLayer(320, out_channels)
 
     def forward(self, latent, time):
         time=self.time_embedding(time)
@@ -260,38 +260,29 @@ class Diffusion(nn.Module):
 
         return output
     
+
+import torch
+from torch import nn
+
 if __name__ == "__main__":
-    # Dummy inputs
-    batch_size = 10
-    height = 64
-    width = 64
-    in_channels = 4
-    # context_dim = 768
-    seq_len = 77
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Input configurations
+    batch_size = 1
+    in_channels = 9  # Must match UNET input
+    height = 64      # Height / 8 = 64 → original H = 512
+    width = 64       # Width / 8 = 64 → original W = 512
 
-    # Create model and move to device
-    model = Diffusion().to(device)
+    # Create dummy inputs
+    latent = torch.randn(batch_size, in_channels, height, width)  # [1, 4, 64, 64]
+    time = torch.randn(batch_size, 320)  # [1, 320]
 
-    # Random input tensor with 4 channels
-    x = torch.randn(batch_size, in_channels, height, width).to(device)
-
-    print('Input shape to UNET: ', x.shape)
-
-    # Time embedding (e.g., timestep from a diffusion schedule)
-    t = torch.randn(batch_size, 320).to(device)
-
-    print('Time Embedding shape to UNET: ',t.shape)
-
-    # Context for cross attention (e.g., text embedding from CLIP or transformer)
-    # context = torch.randn(batch_size, seq_len, context_dim).to(device)
-
-    # print('context shape to UNET: ', context.shape)
+    # Initialize model
+    model = Diffusion(in_channels=in_channels, out_channels=4)
 
     # Forward pass
     with torch.no_grad():
-        output = model(x, t)
-        print(output)
+        output = model(latent, time)
 
-    print("Output shape of UNET:", output.shape)
+    # Print input and output shape
+    print("Input latent shape:", latent.shape)
+    print("Time embedding shape:", time.shape)
+    print("Output shape:", output.shape)

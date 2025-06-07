@@ -1,4 +1,6 @@
 *inkpunk-diffusion-v1.ckpt
+*sd-v1-5-inpainting.ckpt
+*zalando-hd-resized.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
