@@ -50,7 +50,7 @@ class UNET_ResidualBlock(nn.Module):
         return merged + self.residual_layer(residue)
 
 class UNET_AttentionBlock(nn.Module):
-    def __init__(self, n_head, n_embed, d_context=768):
+    def __init__(self, n_head, n_embed):
         super().__init__()
 
         channels=n_head*n_embed
@@ -62,7 +62,7 @@ class UNET_AttentionBlock(nn.Module):
         self.attention_1=SelfAttention(n_head, channels, in_proj_bias=False)
 
         self.layernorm_2=nn.LayerNorm(channels)
-        self.attention_2=CrossAttention(n_head, channels, d_context, in_proj_bias=False)
+        # self.attention_2=CrossAttention(n_head, channels, d_context, in_proj_bias=False)
 
         self.layernorm_3=nn.LayerNorm(channels)
 
@@ -71,7 +71,7 @@ class UNET_AttentionBlock(nn.Module):
 
         self.conv_output=nn.Conv2d(channels, channels, kernel_size=1, padding=0)
 
-    def forward(self, x, context):
+    def forward(self, x):
         residue_long=x
 
         x=self.grpnorm(x)
@@ -92,7 +92,7 @@ class UNET_AttentionBlock(nn.Module):
         residue_short=x
 
         x=self.layernorm_2(x)
-        x=self.attention_2(x, context)
+        # x=self.attention_2(x, context)
 
         x+=residue_short
 
@@ -123,10 +123,10 @@ class Upsample(nn.Module):
     
 # passing arguments to the parent class nn.Sequential, not to your SwitchSequential class directly — because you did not override the __init__ method in SwitchSequential
 class SwitchSequential(nn.Sequential):
-    def forward(self, x, context, time):
+    def forward(self, x, time):
         for layer in self:
             if isinstance(layer, UNET_AttentionBlock):
-                x=layer(x, context)
+                x=layer(x)
             elif isinstance(layer, UNET_ResidualBlock):
                 x=layer(x, time)
             else:
@@ -210,22 +210,22 @@ class UNET(nn.Module):
             SwitchSequential(UNET_ResidualBlock(640, 320), UNET_AttentionBlock(8, 40)),
         ])
 
-    def forward(self, x, context, time):
+    def forward(self, x, time):
         # x: (Batch_Size, 4, Height / 8, Width / 8)
         # context: (Batch_Size, Seq_Len, Dim) 
         # time: (1, 1280)
 
         skip_connections = []
         for layers in self.encoders:
-            x = layers(x, context, time)
+            x = layers(x, time)
             skip_connections.append(x)
 
-        x = self.bottleneck(x, context, time)
+        x = self.bottleneck(x, time)
 
         for layers in self.decoders:
             # Since we always concat with the skip connection of the encoder, the number of features increases before being sent to the decoder's layer
             x = torch.cat((x, skip_connections.pop()), dim=1) 
-            x = layers(x, context, time)
+            x = layers(x, time)
         
         return x
 
@@ -251,10 +251,10 @@ class Diffusion(nn.Module):
         self.unet=UNET()
         self.final=UNET_OutputLayer(320, 4)
 
-    def forward(self, latent, context, time):
+    def forward(self, latent, time):
         time=self.time_embedding(time)
 
-        output=self.unet(latent, context, time)
+        output=self.unet(latent, time)
 
         output=self.final(output)
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     height = 64
     width = 64
     in_channels = 4
-    context_dim = 768
+    # context_dim = 768
     seq_len = 77
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -285,13 +285,13 @@ if __name__ == "__main__":
     print('Time Embedding shape to UNET: ',t.shape)
 
     # Context for cross attention (e.g., text embedding from CLIP or transformer)
-    context = torch.randn(batch_size, seq_len, context_dim).to(device)
+    # context = torch.randn(batch_size, seq_len, context_dim).to(device)
 
-    print('context shape to UNET: ', context.shape)
+    # print('context shape to UNET: ', context.shape)
 
     # Forward pass
     with torch.no_grad():
-        output = model(x, context, t)
+        output = model(x, t)
         print(output)
 
     print("Output shape of UNET:", output.shape)
