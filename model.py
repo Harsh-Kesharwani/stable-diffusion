@@ -5,12 +5,12 @@ from diffusion import Diffusion
 
 import model_converter
 
-def preload_models_from_standard_weights(ckpt_path, device):
+def preload_models_from_standard_weights(ckpt_path, device, finetune_weight_path=None):
     # CatVTON parameters
     in_channels = 9
     out_channels = 4
 
-    state_dict=model_converter.load_from_standard_weights(ckpt_path, device)
+    state_dict=model_converter.load_from_standard_weights(ckpt_path, device, finetune_weight_path)
 
     encoder=VAE_Encoder().to(device)
     encoder.load_state_dict(state_dict['encoder'], strict=True)

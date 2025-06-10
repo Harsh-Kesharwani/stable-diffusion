@@ -1,6 +1,7 @@
 import torch
+import safetensors.torch
 
-def load_from_standard_weights(input_file: str, device: str) -> dict[str, torch.Tensor]:
+def load_from_standard_weights(input_file: str, device: str, finetuned_weights_path: str=None) -> dict[str, torch.Tensor]:
     # Taken from: https://github.com/kjsman/stable-diffusion-pytorch/issues/7#issuecomment-1426839447
     # original_model = torch.load(input_file, map_location=device, weights_only = False)["state_dict"]
     original_model=torch.load(input_file, weights_only = False)["state_dict"]
@@ -1054,4 +1055,85 @@ def load_from_standard_weights(input_file: str, device: str) -> dict[str, torch.
     converted['clip']['layers.11.attention.in_proj.weight'] = torch.cat((original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.q_proj.weight'], original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.k_proj.weight'], original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.v_proj.weight']), 0)
     converted['clip']['layers.11.attention.in_proj.bias'] = torch.cat((original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.q_proj.bias'], original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.k_proj.bias'], original_model['cond_stage_model.transformer.text_model.encoder.layers.11.self_attn.v_proj.bias']), 0)
 
+    if finetuned_weights_path is not None:
+        converted=convert_safetensors_to_combined_weights(finetuned_weights_path, converted)
+
+    return converted
+
+
+def convert_safetensors_to_combined_weights(safetensors_path, converted):
+    """
+    Convert safetensors with separate q,k,v weights to combined in_proj weights
+    """
+    # Load the original safetensors
+    state_dict = safetensors.torch.load_file(safetensors_path)
+    
+    # Create mapping from your safetensors indices to UNet attention paths
+    # Based on dimension analysis:
+    # 320-dim layers: 0, 8, 96, 104, 112 -> encoders.1,2 and decoders.9,10,11
+    # 640-dim layers: 16, 24, 72, 80, 88 -> encoders.4,5 and decoders.6,7,8  
+    # 1280-dim layers: 32, 40, 48, 56, 64, 120 -> encoders.7,8, bottleneck, decoders.3,4,5
+    
+    layer_mappings = {
+        # 320-dim layers (encoders)
+        0: "encoders.1.1.attention_1",      # [320,320] -> [960,320]
+        8: "encoders.2.1.attention_1",      # [320,320] -> [960,320]
+        
+        # 640-dim layers (encoders)  
+        16: "encoders.4.1.attention_1",     # [640,640] -> [1920,640]
+        24: "encoders.5.1.attention_1",     # [640,640] -> [1920,640]
+        
+        # 1280-dim layers (encoders)
+        32: "encoders.7.1.attention_1",     # [1280,1280] -> [3840,1280]  
+        40: "encoders.8.1.attention_1",     # [1280,1280] -> [3840,1280]
+        
+        # 1280-dim layers (bottleneck)
+        48: "bottleneck.1.attention_1",     # [1280,1280] -> [3840,1280]
+        
+        # 1280-dim layers (decoders)
+        56: "decoders.3.1.attention_1",     # [1280,1280] -> [3840,1280]
+        64: "decoders.4.1.attention_1",     # [1280,1280] -> [3840,1280] 
+        120: "decoders.5.1.attention_1",    # [1280,1280] -> [3840,1280]
+        
+        # 640-dim layers (decoders)
+        72: "decoders.6.1.attention_1",     # [640,640] -> [1920,640]
+        80: "decoders.7.1.attention_1",     # [640,640] -> [1920,640]
+        88: "decoders.8.1.attention_1",     # [640,640] -> [1920,640]
+        
+        # 320-dim layers (decoders)
+        96: "decoders.9.1.attention_1",     # [320,320] -> [960,320]
+        104: "decoders.10.1.attention_1",   # [320,320] -> [960,320]
+        112: "decoders.11.1.attention_1"    # [320,320] -> [960,320]
+    }
+    
+    
+    for layer_idx, unet_path in layer_mappings.items():
+        # Get the q, k, v weights for this layer
+        q_key = f"{layer_idx}.to_q.weight"
+        k_key = f"{layer_idx}.to_k.weight"
+        v_key = f"{layer_idx}.to_v.weight"
+        out_weight_key = f"{layer_idx}.to_out.0.weight"
+        out_bias_key = f"{layer_idx}.to_out.0.bias"
+        
+        if all(key in state_dict for key in [q_key, k_key, v_key]):
+            # Concatenate q, k, v weights along dimension 0 to create in_proj weight
+            q_weight = state_dict[q_key]
+            k_weight = state_dict[k_key]
+            v_weight = state_dict[v_key]
+            
+            # Combine into single in_proj matrix
+            in_proj_weight = torch.cat([q_weight, k_weight, v_weight], dim=0)
+            
+            # Store in converted format
+            converted['diffusion'][f"unet.{unet_path}.in_proj.weight"] = in_proj_weight
+            
+            # Also handle output projection weights
+            if out_weight_key in state_dict:
+                converted['diffusion'][f"unet.{unet_path}.out_proj.weight"] = state_dict[out_weight_key]
+            
+            if out_bias_key in state_dict:
+                converted['diffusion'][f"unet.{unet_path}.out_proj.bias"] = state_dict[out_bias_key]
+                
+            print(f"Converted layer {layer_idx}: {q_weight.shape} + {k_weight.shape} + {v_weight.shape} -> {in_proj_weight.shape}")
+    
     return converted
