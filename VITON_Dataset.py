@@ -32,10 +32,11 @@ class InferenceDataset(Dataset):
 
 class VITONHDTestDataset(InferenceDataset):
     def load_data(self):
-        assert os.path.exists(pair_txt:=os.path.join(self.args.data_root_path, 'test_pairs.txt')), f"File {pair_txt} does not exist."
+        name= "train" if self.is_train else "test"
+        assert os.path.exists(pair_txt:=os.path.join(self.args.data_root_path, f'{name}_pairs.txt')), f"File {pair_txt} does not exist."
         with open(pair_txt, 'r') as f:
             lines = f.readlines()
-        self.args.data_root_path = os.path.join(self.args.data_root_path, "test")
+        self.args.data_root_path = os.path.join(self.args.data_root_path, name)
         output_dir = os.path.join(self.args.output_dir, "vitonhd", 'unpaired' if not self.args.eval_pair else 'paired')
         data = []
         for line in lines:
