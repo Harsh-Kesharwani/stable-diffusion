@@ -7,6 +7,7 @@ from tqdm import tqdm
 from ddpm import DDPMSampler
 from PIL import Image
 import model
+from utils import check_inputs, prepare_image, prepare_mask_image
 
 WIDTH = 512
 HEIGHT = 512
@@ -21,64 +22,6 @@ def repaint_result(result, person_image, mask_image):
     # mask for result, ~mask for person
     result_ = result * mask + person * (1 - mask)
     return Image.fromarray(result_.astype(np.uint8))
-
-
-def prepare_image(image):
-    if isinstance(image, torch.Tensor):
-        # Batch single image
-        if image.ndim == 3:
-            image = image.unsqueeze(0)
-        image = image.to(dtype=torch.float32)
-    else:
-        # preprocess image
-        if isinstance(image, (PIL.Image.Image, np.ndarray)):
-            image = [image]
-        if isinstance(image, list) and isinstance(image[0], PIL.Image.Image):
-            image = [np.array(i.convert("RGB"))[None, :] for i in image]
-            image = np.concatenate(image, axis=0)
-        elif isinstance(image, list) and isinstance(image[0], np.ndarray):
-            image = np.concatenate([i[None, :] for i in image], axis=0)
-        image = image.transpose(0, 3, 1, 2)
-        image = torch.from_numpy(image).to(dtype=torch.float32) / 127.5 - 1.0
-    return image
-
-
-def prepare_mask_image(mask_image):
-    if isinstance(mask_image, torch.Tensor):
-        if mask_image.ndim == 2:
-            # Batch and add channel dim for single mask
-            mask_image = mask_image.unsqueeze(0).unsqueeze(0)
-        elif mask_image.ndim == 3 and mask_image.shape[0] == 1:
-            # Single mask, the 0'th dimension is considered to be
-            # the existing batch size of 1
-            mask_image = mask_image.unsqueeze(0)
-        elif mask_image.ndim == 3 and mask_image.shape[0] != 1:
-            # Batch of mask, the 0'th dimension is considered to be
-            # the batching dimension
-            mask_image = mask_image.unsqueeze(1)
-
-        # Binarize mask
-        mask_image[mask_image < 0.5] = 0
-        mask_image[mask_image >= 0.5] = 1
-    else:
-        # preprocess mask
-        if isinstance(mask_image, (PIL.Image.Image, np.ndarray)):
-            mask_image = [mask_image]
-
-        if isinstance(mask_image, list) and isinstance(mask_image[0], PIL.Image.Image):
-            mask_image = np.concatenate(
-                [np.array(m.convert("L"))[None, None, :] for m in mask_image], axis=0
-            )
-            mask_image = mask_image.astype(np.float32) / 255.0
-        elif isinstance(mask_image, list) and isinstance(mask_image[0], np.ndarray):
-            mask_image = np.concatenate([m[None, None, :] for m in mask_image], axis=0)
-
-        mask_image[mask_image < 0.5] = 0
-        mask_image[mask_image >= 0.5] = 1
-        mask_image = torch.from_numpy(mask_image)
-
-    return mask_image
-
 
 def numpy_to_pil(images):
     """
@@ -140,50 +83,6 @@ def concat_images(images: List[Image.Image], divider: int = 4, cols: int = 4):
             y_offset += image.size[1] + divider
 
     return concat_image
-
-def resize_and_crop(image, size):
-    # Crop to size ratio
-    w, h = image.size
-    target_w, target_h = size
-    if w / h < target_w / target_h:
-        new_w = w
-        new_h = w * target_h // target_w
-    else:
-        new_h = h
-        new_w = h * target_w // target_h
-    image = image.crop(
-        ((w - new_w) // 2, (h - new_h) // 2, (w + new_w) // 2, (h + new_h) // 2)
-    )
-    # resize
-    image = image.resize(size, Image.LANCZOS)
-    return image
-
-
-def resize_and_padding(image, size):
-    # Padding to size ratio
-    w, h = image.size
-    target_w, target_h = size
-    if w / h < target_w / target_h:
-        new_h = target_h
-        new_w = w * target_h // h
-    else:
-        new_w = target_w
-        new_h = h * target_w // w
-    image = image.resize((new_w, new_h), Image.LANCZOS)
-    # padding
-    padding = Image.new("RGB", size, (255, 255, 255))
-    padding.paste(image, ((target_w - new_w) // 2, (target_h - new_h) // 2))
-    return padding
-
-def check_inputs(image, condition_image, mask, width, height):
-    if isinstance(image, torch.Tensor) and isinstance(condition_image, torch.Tensor) and isinstance(mask, torch.Tensor):
-        return image, condition_image, mask
-    assert image.size == mask.size, "Image and mask must have the same size"
-    image = resize_and_crop(image, (width, height))
-    mask = resize_and_crop(mask, (width, height))
-    condition_image = resize_and_padding(condition_image, (width, height))
-    return image, condition_image, mask
-
 
 def compute_vae_encodings(image_tensor, encoder, device):
     """Encode image using VAE encoder"""
