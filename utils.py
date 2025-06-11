@@ -9,7 +9,7 @@ from accelerate.state import AcceleratorState
 from packaging import version
 import accelerate
 from typing import List, Optional, Tuple, Set
-from diffusers import UNet2DConditionModel, SchedulerMixin
+# from diffusers import UNet2DConditionModel, SchedulerMixin
 from tqdm import tqdm
 from PIL import Image, ImageFilter
 
