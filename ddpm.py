@@ -97,7 +97,7 @@ class DDPMSampler:
     def add_noise(
         self,
         original_samples: torch.FloatTensor,
-        timesteps: Any,
+        timesteps: torch.IntTensor,
         noise: torch.FloatTensor = None,
     ) -> torch.FloatTensor:
         alphas_cumprod = self.alphas_cumprod.to(device=original_samples.device, dtype=original_samples.dtype)
