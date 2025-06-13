@@ -4,7 +4,7 @@ from PIL import Image
 from transformers import CLIPTokenizer
 
 # Import your existing model and pipeline modules
-import model
+import load_model
 import pipeline
 
 # Device Configuration
@@ -24,7 +24,7 @@ print(f"Using device: {DEVICE}")
 # Load tokenizer and models
 tokenizer = CLIPTokenizer("vocab.json", merges_file="merges.txt")
 model_file = "inkpunk-diffusion-v1.ckpt"
-models = model.preload_models_from_standard_weights(model_file, DEVICE)
+models = load_model.preload_models_from_standard_weights(model_file, DEVICE)
 # models=None
 
 def generate_image(

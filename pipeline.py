@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from ddpm import DDPMSampler
 from PIL import Image
-import model
+import load_model
 from utils import check_inputs, prepare_image, prepare_mask_image
 
 WIDTH = 512
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     mask = Image.open("agnostic_mask.png").convert("L")
 
     # Load models
-    models=model.preload_models_from_standard_weights("sd-v1-5-inpainting.ckpt", device="cuda")
+    models=load_model.preload_models_from_standard_weights("sd-v1-5-inpainting.ckpt", device="cuda")
 
     # Generate image
     generated_image = generate(
