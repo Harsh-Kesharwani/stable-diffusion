@@ -31,7 +31,7 @@ def preload_models_from_standard_weights(ckpt_path, device, finetune_weights_pat
     clip.load_state_dict(state_dict['clip'], strict=True)
 
     return {
-        'clip': clip,
+        # 'clip': clip,
         'encoder': encoder,
         'decoder': decoder,
         'diffusion': diffusion,
