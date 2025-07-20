@@ -1,0 +1,29 @@
+/home/mahesh/harsh/stable-diffusion/training.py:84: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler()
+----------------------------------------------------------------------------------------------------
+Loading pretrained models...
+Models loaded successfully.
+----------------------------------------------------------------------------------------------------
+Creating dataloader...
+Dataset vitonhd loaded, total 11647 pairs.
+Training for 50 epochs
+Batches per epoch: 5824
+----------------------------------------------------------------------------------------------------
+Initializing trainer...
+Enabling PEFT training (self-attention layers only)
+Total parameters: 899,226,667
+Trainable parameters: 49,574,080 (5.51%)
+Checkpoint loaded: ./checkpoints/checkpoint_step_50000.pth
+Resuming from epoch 13, step 50000
+Starting training...
+Starting training for 50 epochs
+Total training batches per epoch: 5824
+Using DREAM with lambda = 0
+Mixed precision: True
+/home/mahesh/harsh/stable-diffusion/training.py:304: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast():
+/home/mahesh/harsh/stable-diffusion/training.py:194: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=self.use_mixed_precision):
+/home/mahesh/harsh/stable-diffusion/utils.py:491: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+  

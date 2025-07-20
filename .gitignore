@@ -2,6 +2,12 @@
 *sd-v1-5-inpainting.ckpt
 *zalando-hd-resized.zip
 
+# *viton-hd-dataset.zip
+viton-hd-dataset/
+checkpoints/
+
+*finetuned_weights.safetensors
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 **/__pycache__/
