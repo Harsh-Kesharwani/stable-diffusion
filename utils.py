@@ -20,7 +20,7 @@ def get_time_embedding(timesteps):
         timesteps = timesteps.unsqueeze(0)
     
     # Shape: (160,)
-    freqs = torch.pow(10000, -torch.arange(start=0, end=160, dtype=torch.float32) / 160) 
+    freqs = torch.pow(10000, -torch.arange(start=0, end=160, dtype=torch.float32, device=timesteps.device) / 160) 
     # Shape: (B, 160)
     x = timesteps.float()[:, None] * freqs[None]
     # Shape: (B, 320)
@@ -101,6 +101,12 @@ def check_inputs(image, condition_image, mask, width, height):
     condition_image = resize_and_padding(condition_image, (width, height))
     return image, condition_image, mask
 
+def check_inputs_maskfree(image, condition_image, width, height):
+    if isinstance(image, torch.Tensor) and isinstance(condition_image, torch.Tensor):
+        return image, condition_image
+    image = resize_and_crop(image, (width, height))
+    condition_image = resize_and_padding(condition_image, (width, height))
+    return image, condition_image
 
 def repaint_result(result, person_image, mask_image):
     result, person, mask = np.array(result), np.array(person_image), np.array(mask_image)

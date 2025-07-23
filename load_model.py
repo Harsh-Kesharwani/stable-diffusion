@@ -78,7 +78,12 @@ def load_finetuned_attention_weights(finetune_weights_path, diffusion, device):
 
 def preload_models_from_standard_weights(ckpt_path, device, finetune_weights_path=None):
     # CatVTON parameters
+    # in_channels: 8 for instruct-pix2pix (masked free), 9 for sd-v1-5-inpainting (masked based)
     in_channels = 9
+    
+    if 'maskfree' in finetune_weights_path or 'mask_free' in finetune_weights_path:
+        in_channels = 8
+        
     out_channels = 4
 
     state_dict=model_converter.load_from_standard_weights(ckpt_path, device)

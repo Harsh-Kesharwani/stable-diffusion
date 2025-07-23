@@ -1,7 +1,9 @@
 *inkpunk-diffusion-v1.ckpt
+*instruct-pix2pix*
 *sd-v1-5-inpainting.ckpt
 *zalando-hd-resized.zip
-
+*finetuned_weights.safetensors
+*maskfree_finetuned_weights.safetensors
 # *viton-hd-dataset.zip
 viton-hd-dataset/
 checkpoints/
