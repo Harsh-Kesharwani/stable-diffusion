@@ -8,10 +8,26 @@ import numpy as np
 import torch
 import tqdm 
 from diffusers.utils.torch_utils import randn_tensor
+from diffusers import AutoencoderKL
 
-from utils import (check_inputs_maskfree, get_time_embedding, numpy_to_pil, prepare_image, compute_vae_encodings)
+from utils import (check_inputs_maskfree, get_time_embedding, numpy_to_pil, prepare_image)
 from ddpm import DDPMSampler
 
+def compute_vae_encodings(image: torch.Tensor, vae: torch.nn.Module) -> torch.Tensor:
+    """
+    Args:
+        images (torch.Tensor): image to be encoded
+        vae (torch.nn.Module): vae model
+
+    Returns:
+        torch.Tensor: latent encoding of the image
+    """
+    pixel_values = image.to(memory_format=torch.contiguous_format).float()
+    pixel_values = pixel_values.to(vae.device, dtype=vae.dtype)
+    with torch.no_grad():
+        model_input = vae.encode(pixel_values).latent_dist.sample()
+    model_input = model_input * vae.config.scaling_factor
+    return model_input
 
 class CatVTONPix2PixPipeline:
     def __init__(
@@ -32,7 +48,9 @@ class CatVTONPix2PixPipeline:
         self.noise_scheduler = DDPMSampler(generator=self.generator)
         self.encoder= models.get('encoder', None)
         self.decoder= models.get('decoder', None)
-        self.unet=models.get('diffusion', None)  
+        self.unet=models.get('diffusion', None) 
+        
+        self.vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(device, dtype=weight_dtype) 
         
         # Enable TF32 for faster training on Ampere GPUs
         if use_tf32:
@@ -61,8 +79,8 @@ class CatVTONPix2PixPipeline:
         condition_image = prepare_image(condition_image).to(self.device, dtype=self.weight_dtype)
         
         # Encode the image
-        image_latent = compute_vae_encodings(image, self.encoder)
-        condition_latent = compute_vae_encodings(condition_image, self.encoder)
+        image_latent = compute_vae_encodings(image, self.vae)
+        condition_latent = compute_vae_encodings(condition_image, self.vae)
         
         del image, condition_image
         
@@ -127,7 +145,9 @@ class CatVTONPix2PixPipeline:
 
         # Decode the final latents
         latents = latents.split(latents.shape[concat_dim] // 2, dim=concat_dim)[0]
-        image = self.decoder(latents.to(self.device, dtype=self.weight_dtype))
+        latents = 1 / self.vae.config.scaling_factor * latents
+        image = self.vae.decode(latents.to(self.device, dtype=self.weight_dtype)).sample
+        # image = self.decoder(latents.to(self.device, dtype=self.weight_dtype))
         image = (image / 2 + 0.5).clamp(0, 1)
         image = image.cpu().permute(0, 2, 3, 1).float().numpy()
         image = numpy_to_pil(image)
