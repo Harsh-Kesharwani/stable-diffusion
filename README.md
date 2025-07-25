@@ -215,14 +215,12 @@ jupyter notebook mask_free_inference.ipynb
 python app.py
 ```
 
-
 ---
 
-
-## Masked Based Training
+## Training
 
 ### Training Dataset
-## Download hd-viton dataset from kaggle.
+Download HD-VITON dataset from Kaggle.
 
 ### Start Training
 
@@ -257,7 +255,7 @@ dataset/
 │   └── train_pairs.txt     # Image-cloth pairs
 ├── test/
 │   └── ...                 # Same structure
-└── train_pair.txt
+├── train_pair.txt
 └── test_pair.txt
 ```
 
@@ -294,6 +292,7 @@ To use your own dataset, ensure:
 ### Educational Resources
 * [Stable Diffusion from Scratch (Medium)](https://medium.com/@sayedebad.777/implementing-stable-diffusion-from-scratch-using-pytorch-f07d50efcd97)
 * [Diffusion Models Explained](https://www.youtube.com/watch?v=ZBKpAp_6TGI)
+
 ---
 
 ## Contributing
@@ -305,8 +304,6 @@ Contributions are welcome! Please:
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-```
 
 ---
 
@@ -320,7 +317,7 @@ Contributions are welcome! Please:
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/harsh-kesharwani/)
 [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:harshkesharwani777@gmail.com)
 
-*AI Researcher & Computer Vision Enthusiast*
+*AI Researcher & Computer Vision Enthusiast*  
 *Specializing in Generative Models and Virtual Try-On Technology*
 
 </div>
