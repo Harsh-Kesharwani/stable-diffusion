@@ -322,24 +322,6 @@ Contributions are welcome! Please:
 
 </div>
 
----
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-### Citation
-If you use this code in your research, please cite:
-```bibtex
-@misc{kesharwani2024catvton,
-  title={CatVTON: Virtual Clothes Try-On Implementation},
-  author={Harsh Kesharwani},
-  year={2024},
-  url={https://github.com/Harsh-Kesharwani/stable-diffusion}
-}
-```
-
----
 
 ## Acknowledgments
 
